@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Quiz Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .input-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .input-group input[type="text"],
+        .input-group input[type="number"],
+        .input-group input[type="password"],
+        .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-group input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            width: 100%;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .quiz-container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            min-height: 500px;
+            display: none;
+        }
+
+        .quiz-container.active {
+            display: block;
+        }
+
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .quiz-counter {
+            font-size: 18px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .quiz-question {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 30px;
+            line-height: 1.4;
+        }
+
+        .quiz-type {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+
+        .choices {
+            margin-bottom: 30px;
+        }
+
+        .choice {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+        }
+
+        .choice:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .choice.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .choice.correct {
+            border-color: #4caf50;
+            background: #4caf50;
+            color: white;
+        }
+
+        .choice.incorrect {
+            border-color: #f44336;
+            background: #f44336;
+            color: white;
+        }
+
+        .choice-letter {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: white;
+            color: #667eea;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: 600;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .choice.selected .choice-letter,
+        .choice.correct .choice-letter,
+        .choice.incorrect .choice-letter {
+            background: rgba(255,255,255,0.9);
+        }
+
+        .short-answer-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .quiz-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+        }
+
+        .navigation {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e0e0e0;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .reference-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .reference-btn:hover {
+            background: #45a049;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        .reference-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .reference-modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .reference-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #f44336;
+            color: white;
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .reference-text {
+            line-height: 1.8;
+            color: #333;
+        }
+
+        .highlight {
+            background: #ffeb3b;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c62828;
+        }
+
+        .info-message {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1565c0;
+        }
+
+        .generating-indicator {
+            display: inline-block;
+            background: #ff9800;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .answer-feedback {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-weight: 600;
+        }
+
+        .answer-feedback.correct {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #4caf50;
+        }
+
+        .answer-feedback.incorrect {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 AI Quiz Generator</h1>
+            <p>Generate intelligent quizzes from your reference materials using Gemini AI</p>
+        </div>
+
+        <div class="input-section" id="inputSection">
+            <div class="input-group">
+                <label for="apiKey">🔑 Gemini API Key (BYOK)</label>
+                <input type="password" id="apiKey" placeholder="Enter your Gemini API key">
+            </div>
+
+            <div class="input-group">
+                <label for="subject">📚 Quiz Subject/Topic</label>
+                <textarea id="subject" rows="3" placeholder="Describe the subject or topic for the quiz (e.g., 'Machine Learning fundamentals', 'World War II history')"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label for="fileUpload">📄 Reference Material (PDF, DOCX, TXT, etc.)</label>
+                <input type="file" id="fileUpload" accept=".pdf,.docx,.txt,.doc">
+            </div>
+
+            <div class="input-group">
+                <label for="quizCount">🔢 Number of Quizzes</label>
+                <input type="number" id="quizCount" min="1" max="20" value="5">
+            </div>
+
+            <button class="btn" id="generateBtn" onclick="startQuizGeneration()">Generate Quizzes</button>
+        </div>
+
+        <div class="quiz-container" id="quizContainer">
+            <div class="quiz-header">
+                <div class="quiz-counter" id="quizCounter">Quiz 1 of 5</div>
+                <div id="generatingIndicator"></div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+
+            <div id="quizContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Generating quizzes...</p>
+                </div>
+            </div>
+
+            <div class="quiz-actions">
+                <div class="navigation">
+                    <button class="nav-btn" id="prevBtn" onclick="navigateQuiz(-1)">← Previous</button>
+                    <button class="nav-btn" id="nextBtn" onclick="navigateQuiz(1)">Next →</button>
+                </div>
+                <button class="reference-btn" id="referenceBtn" onclick="showReference()">📖 View Reference</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="reference-modal" id="referenceModal">
+        <div class="reference-content">
+            <button class="close-modal" onclick="closeReference()">×</button>
+            <h2 style="margin-bottom: 20px;">Reference Material</h2>
+            <div class="reference-text" id="referenceText"></div>
+        </div>
+    </div>
+
+    <script>
+        let quizzes = [];
+        let currentQuizIndex = 0;
+        let uploadedFileUri = null;
+        let uploadedFileName = null;
+        let uploadedFileMimeType = null;
+        let referenceContent = "";
+        let apiKey = "";
+        let isGenerating = false;
+        let totalQuizzesToGenerate = 0;
+
+        const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+
+        async function startQuizGeneration() {
+            // Validate inputs
+            apiKey = document.getElementById('apiKey').value.trim();
+            const subject = document.getElementById('subject').value.trim();
+            const file = document.getElementById('fileUpload').files[0];
+            totalQuizzesToGenerate = parseInt(document.getElementById('quizCount').value);
+
+            if (!apiKey) {
+                alert('Please enter your Gemini API key');
+                return;
+            }
+
+            if (!subject) {
+                alert('Please enter a quiz subject/topic');
+                return;
+            }
+
+            if (!file) {
+                alert('Please upload a reference material file');
+                return;
+            }
+
+            if (totalQuizzesToGenerate < 1 || totalQuizzesToGenerate > 20) {
+                alert('Please enter a number between 1 and 20');
+                return;
+            }
+
+            // Reset state
+            quizzes = [];
+            currentQuizIndex = 0;
+            isGenerating = true;
+
+            // Show quiz container and loading
+            document.getElementById('inputSection').style.display = 'none';
+            document.getElementById('quizContainer').classList.add('active');
+            document.getElementById('quizContent').innerHTML = '<div class="loading"><div class="spinner"></div><p>Uploading file and generating quizzes...</p></div>';
+
+            try {
+                // Upload file to Gemini
+                await uploadFile(file);
+
+                // Generate quizzes with streaming
+                await generateQuizzes(subject, totalQuizzesToGenerate);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('quizContent').innerHTML = `
+                    <div class="error-message">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                    <button class="btn" onclick="location.reload()">Start Over</button>
+                `;
+                isGenerating = false;
+            }
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Get MIME type
+            uploadedFileMimeType = file.type || 'application/octet-stream';
+            uploadedFileName = file.name;
+
+            // Upload to Gemini Files API
+            const uploadResponse = await fetch(
+                `${GEMINI_API_BASE}/files?key=${apiKey}`,
+                {
+                    method: 'POST',
+                    body: formData
+                }
+            );
+
+            if (!uploadResponse.ok) {
+                const errorData = await uploadResponse.json();
+                throw new Error(`File upload failed: ${errorData.error?.message || 'Unknown error'}`);
+            }
+
+            const uploadData = await uploadResponse.json();
+            uploadedFileUri = uploadData.file.uri;
+
+            // Read file content for reference (text files only for now)
+            if (file.type === 'text/plain') {
+                referenceContent = await file.text();
+            } else {
+                referenceContent = `[${file.name}] - Content available in uploaded file`;
+            }
+
+            console.log('File uploaded:', uploadedFileUri);
+        }
+
+        async function generateQuizzes(subject, count) {
+            const prompt = `You are an expert quiz generator. Based on the provided reference material and the subject "${subject}", generate exactly ${count} quiz questions.
+
+IMPORTANT: Generate quizzes ONE AT A TIME. After each quiz, I will acknowledge and you can generate the next one.
+
+For each quiz, use this EXACT JSON format:
+{
+    "question": "The quiz question text",
+    "type": "multiple_choice" or "short_answer",
+    "choices": ["Choice A", "Choice B", "Choice C", "Choice D", "Choice E"] (only for multiple_choice, must be exactly 5 choices),
+    "correct_answer": "The correct answer" (for multiple_choice, use the exact choice text; for short_answer, use a short unequivocal answer of a few words max),
+    "reference_excerpt": "The specific excerpt from the reference material that supports this question",
+    "explanation": "Brief explanation of why this is the correct answer"
+}
+
+Requirements:
+- Mix of multiple choice (70%) and short answer (30%) questions
+- Multiple choice questions must have exactly 5 choices
+- Short answer questions should have unequivocal answers (a few words maximum)
+- Each question must reference specific content from the uploaded material
+- Questions should test understanding, not just memorization
+- Vary difficulty levels
+
+Start with Quiz 1:`;
+
+            const requestBody = {
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            { text: prompt },
+                            {
+                                fileData: {
+                                    mimeType: uploadedFileMimeType,
+                                    fileUri: uploadedFileUri
+                                }
+                            }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 8192,
+                },
+                tools: [{ googleSearch: {} }]
+            };
+
+            const response = await fetch(
+                `${GEMINI_API_BASE}/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Quiz generation failed: ${errorData.error?.message || 'Unknown error'}`);
+            }
+
+            const data = await response.json();
+            const responseText = data.candidates[0].content.parts[0].text;
+
+            // Parse the quizzes from the response
+            parseAndDisplayQuizzes(responseText);
+        }
+
+        function parseAndDisplayQuizzes(responseText) {
+            // Extract JSON objects from the response
+            const jsonMatches = responseText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+
+            if (!jsonMatches) {
+                throw new Error('No valid quiz data found in response');
+            }
+
+            jsonMatches.forEach((jsonStr, index) => {
+                try {
+                    const quiz = JSON.parse(jsonStr);
+                    if (quiz.question && quiz.type && quiz.correct_answer) {
+                        quizzes.push({
+                            ...quiz,
+                            userAnswer: null,
+                            isAnswered: false
+                        });
+
+                        // Display first quiz immediately, others as they're parsed
+                        if (quizzes.length === 1) {
+                            displayQuiz(0);
+                            updateGeneratingIndicator();
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse quiz JSON:', e);
+                }
+            });
+
+            if (quizzes.length === 0) {
+                throw new Error('No valid quizzes could be generated');
+            }
+
+            isGenerating = false;
+            updateGeneratingIndicator();
+            updateProgress();
+        }
+
+        function displayQuiz(index) {
+            if (index < 0 || index >= quizzes.length) return;
+
+            currentQuizIndex = index;
+            const quiz = quizzes[index];
+
+            // Update counter
+            document.getElementById('quizCounter').textContent = `Quiz ${index + 1} of ${quizzes.length}`;
+            updateProgress();
+
+            let html = `
+                <div class="quiz-type">${quiz.type === 'multiple_choice' ? 'Multiple Choice' : 'Short Answer'}</div>
+                <div class="quiz-question">${quiz.question}</div>
+            `;
+
+            if (quiz.type === 'multiple_choice') {
+                html += '<div class="choices">';
+                const letters = ['A', 'B', 'C', 'D', 'E'];
+                quiz.choices.forEach((choice, i) => {
+                    const isSelected = quiz.userAnswer === choice;
+                    const isCorrect = quiz.isAnswered && choice === quiz.correct_answer;
+                    const isIncorrect = quiz.isAnswered && isSelected && choice !== quiz.correct_answer;
+
+                    let className = 'choice';
+                    if (isCorrect) className += ' correct';
+                    else if (isIncorrect) className += ' incorrect';
+                    else if (isSelected) className += ' selected';
+
+                    html += `
+                        <div class="${className}" onclick="selectChoice(${index}, '${choice.replace(/'/g, "\\'")}')">
+                            <span class="choice-letter">${letters[i]}</span>
+                            <span>${choice}</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            } else {
+                const disabled = quiz.isAnswered ? 'disabled' : '';
+                html += `
+                    <input type="text"
+                           class="short-answer-input"
+                           id="shortAnswer"
+                           placeholder="Enter your answer (a few words max)"
+                           value="${quiz.userAnswer || ''}"
+                           ${disabled}
+                           onkeypress="if(event.key==='Enter') submitShortAnswer(${index})">
+                    <button class="btn" onclick="submitShortAnswer(${index})" ${disabled}>Submit Answer</button>
+                `;
+            }
+
+            // Show feedback if answered
+            if (quiz.isAnswered) {
+                const isCorrect = quiz.userAnswer === quiz.correct_answer ||
+                                (quiz.type === 'short_answer' &&
+                                 quiz.userAnswer.toLowerCase().trim() === quiz.correct_answer.toLowerCase().trim());
+
+                html += `
+                    <div class="answer-feedback ${isCorrect ? 'correct' : 'incorrect'}">
+                        ${isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                        ${!isCorrect ? `The correct answer is: ${quiz.correct_answer}` : ''}
+                        <br><br>
+                        <strong>Explanation:</strong> ${quiz.explanation || 'No explanation provided.'}
+                    </div>
+                `;
+            }
+
+            document.getElementById('quizContent').innerHTML = html;
+
+            // Update navigation buttons
+            document.getElementById('prevBtn').disabled = index === 0;
+            document.getElementById('nextBtn').disabled = index === quizzes.length - 1;
+        }
+
+        function selectChoice(quizIndex, choice) {
+            const quiz = quizzes[quizIndex];
+            if (quiz.isAnswered) return; // Don't allow changing answer
+
+            quiz.userAnswer = choice;
+            quiz.isAnswered = true;
+            displayQuiz(quizIndex);
+        }
+
+        function submitShortAnswer(quizIndex) {
+            const input = document.getElementById('shortAnswer');
+            const answer = input.value.trim();
+
+            if (!answer) {
+                alert('Please enter an answer');
+                return;
+            }
+
+            const quiz = quizzes[quizIndex];
+            quiz.userAnswer = answer;
+            quiz.isAnswered = true;
+            displayQuiz(quizIndex);
+        }
+
+        function navigateQuiz(direction) {
+            const newIndex = currentQuizIndex + direction;
+            if (newIndex >= 0 && newIndex < quizzes.length) {
+                displayQuiz(newIndex);
+            }
+        }
+
+        function updateProgress() {
+            const progress = ((currentQuizIndex + 1) / quizzes.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function updateGeneratingIndicator() {
+            const indicator = document.getElementById('generatingIndicator');
+            if (isGenerating || quizzes.length < totalQuizzesToGenerate) {
+                indicator.innerHTML = `<span class="generating-indicator">⚡ Generated ${quizzes.length} of ${totalQuizzesToGenerate}</span>`;
+            } else {
+                indicator.innerHTML = `<span class="quiz-type">✓ All quizzes ready</span>`;
+            }
+        }
+
+        function showReference() {
+            const quiz = quizzes[currentQuizIndex];
+            const modal = document.getElementById('referenceModal');
+            const referenceText = document.getElementById('referenceText');
+
+            if (quiz.reference_excerpt) {
+                // Highlight the relevant excerpt in the reference content
+                let displayContent = referenceContent;
+                if (referenceContent.includes(quiz.reference_excerpt)) {
+                    displayContent = referenceContent.replace(
+                        quiz.reference_excerpt,
+                        `<span class="highlight">${quiz.reference_excerpt}</span>`
+                    );
+                } else {
+                    // If exact excerpt not found, show the excerpt separately
+                    displayContent = `
+                        <div class="info-message">
+                            <strong>Relevant Excerpt:</strong><br>
+                            <span class="highlight">${quiz.reference_excerpt}</span>
+                        </div>
+                        <hr style="margin: 20px 0;">
+                        ${referenceContent}
+                    `;
+                }
+                referenceText.innerHTML = displayContent;
+            } else {
+                referenceText.innerHTML = referenceContent;
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeReference() {
+            document.getElementById('referenceModal').classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('referenceModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeReference();
+            }
+        });
+    </script>
+</body>
+</html>
