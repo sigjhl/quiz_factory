@@ -478,22 +478,20 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { GoogleGenAI } from 'https://cdn.jsdelivr.net/npm/@google/genai@0.21.0/+esm';
+
         let quizzes = [];
         let currentQuizIndex = 0;
-        let uploadedFileUri = null;
-        let uploadedFileName = null;
-        let uploadedFileMimeType = null;
+        let uploadedFile = null;
         let referenceContent = "";
-        let apiKey = "";
+        let ai = null;
         let isGenerating = false;
         let totalQuizzesToGenerate = 0;
 
-        const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-
         async function startQuizGeneration() {
             // Validate inputs
-            apiKey = document.getElementById('apiKey').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
             const subject = document.getElementById('subject').value.trim();
             const file = document.getElementById('fileUpload').files[0];
             totalQuizzesToGenerate = parseInt(document.getElementById('quizCount').value);
@@ -518,6 +516,9 @@
                 return;
             }
 
+            // Initialize the AI client
+            ai = new GoogleGenAI({ apiKey: apiKey });
+
             // Reset state
             quizzes = [];
             currentQuizIndex = 0;
@@ -532,7 +533,7 @@
                 // Upload file to Gemini
                 await uploadFile(file);
 
-                // Generate quizzes with streaming
+                // Generate quizzes
                 await generateQuizzes(subject, totalQuizzesToGenerate);
             } catch (error) {
                 console.error('Error:', error);
@@ -546,87 +547,38 @@
             }
         }
 
-        async function waitForFileReady(fileName, maxAttempts = 10) {
-            // Poll the file status until it's ACTIVE
-            for (let i = 0; i < maxAttempts; i++) {
-                const response = await fetch(
-                    `${GEMINI_API_BASE}/${fileName}?key=${apiKey}`,
-                    { method: 'GET' }
-                );
-
-                if (!response.ok) {
-                    throw new Error('Failed to check file status');
-                }
-
-                const fileData = await response.json();
-                console.log(`File state check ${i + 1}:`, fileData.state);
-
-                if (fileData.state === 'ACTIVE') {
-                    return;
-                }
-
-                if (fileData.state === 'FAILED') {
-                    throw new Error('File processing failed');
-                }
-
-                // Wait before next check (exponential backoff)
-                await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, i), 10000)));
-            }
-
-            throw new Error('File processing timeout - file did not become ready in time');
-        }
+        // Make function globally accessible
+        window.startQuizGeneration = startQuizGeneration;
 
         async function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            // Get MIME type
-            uploadedFileMimeType = file.type || 'application/octet-stream';
-            uploadedFileName = file.name;
-
-            // Upload to Gemini Files API
-            const uploadResponse = await fetch(
-                `${GEMINI_API_BASE}/files?key=${apiKey}`,
-                {
-                    method: 'POST',
-                    body: formData
-                }
-            );
-
-            if (!uploadResponse.ok) {
-                const errorData = await uploadResponse.json();
-                throw new Error(`File upload failed: ${errorData.error?.message || 'Unknown error'}`);
-            }
-
-            const uploadData = await uploadResponse.json();
-            console.log('Upload response:', uploadData);
-
-            // Gemini Files API returns { file: { name: "files/...", state: "PROCESSING" or "ACTIVE", ... } }
-            if (uploadData.file && uploadData.file.name) {
-                uploadedFileUri = uploadData.file.name;
-
-                // Wait for file to be ready if it's still processing
-                if (uploadData.file.state === 'PROCESSING') {
-                    await waitForFileReady(uploadData.file.name);
-                }
-            } else if (uploadData.name) {
-                // Response has { name: ... } structure directly
-                uploadedFileUri = uploadData.name;
-            } else {
-                // Unexpected structure - log full response for debugging
-                console.error('Unexpected upload response structure:', uploadData);
-                console.error('Response keys:', Object.keys(uploadData));
-                throw new Error(`File upload returned unexpected format. Expected "file.name" but got: ${JSON.stringify(uploadData)}`);
-            }
-
-            // Read file content for reference (text files only for now)
+            // Read file content for reference (text files only)
             if (file.type === 'text/plain') {
                 referenceContent = await file.text();
             } else {
                 referenceContent = `[${file.name}] - Content available in uploaded file`;
             }
 
-            console.log('File uploaded:', uploadedFileUri);
+            // Convert File to ArrayBuffer for SDK
+            const fileBuffer = await file.arrayBuffer();
+
+            // Upload to Gemini Files API using SDK
+            uploadedFile = await ai.files.upload({
+                file: new Uint8Array(fileBuffer),
+                mimeType: file.type || 'application/octet-stream',
+                displayName: file.name,
+            });
+
+            console.log('Upload response:', uploadedFile);
+            console.log('Uploaded file name:', uploadedFile.name);
+            console.log('Uploaded file uri:', uploadedFile.uri);
+            console.log('Uploaded file mimeType:', uploadedFile.mimeType);
+
+            // The SDK returns: { name, uri, mimeType, ... }
+            if (!uploadedFile.uri) {
+                throw new Error(`File upload returned unexpected format. Missing "uri" property: ${JSON.stringify(uploadedFile)}`);
+            }
+
+            console.log('File uploaded successfully:', uploadedFile.uri);
         }
 
         async function generateQuizzes(subject, count) {
@@ -654,48 +606,24 @@ Requirements:
 
 Start with Quiz 1:`;
 
-            const requestBody = {
+            // Generate content using SDK
+            const response = await ai.models.generateContent({
+                model: "gemini-2.0-flash-exp",
                 contents: [
-                    {
-                        role: "user",
-                        parts: [
-                            { text: prompt },
-                            {
-                                fileData: {
-                                    mimeType: uploadedFileMimeType,
-                                    fileUri: uploadedFileUri
-                                }
-                            }
-                        ]
-                    }
+                    { role: "user", parts: [{ text: prompt }] },
+                    { role: "user", parts: [{ fileData: { mimeType: uploadedFile.mimeType, fileUri: uploadedFile.uri } }] },
                 ],
-                generationConfig: {
+                config: {
                     temperature: 0.7,
                     topK: 40,
                     topP: 0.95,
                     maxOutputTokens: 8192,
+                    tools: [{ googleSearch: {} }],
                 },
-                tools: [{ googleSearch: {} }]
-            };
+            });
 
-            const response = await fetch(
-                `${GEMINI_API_BASE}/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody)
-                }
-            );
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`Quiz generation failed: ${errorData.error?.message || 'Unknown error'}`);
-            }
-
-            const data = await response.json();
-            const responseText = data.candidates[0].content.parts[0].text;
+            console.log('Generation response:', response);
+            const responseText = response.text;
 
             // Parse the quizzes from the response
             parseAndDisplayQuizzes(responseText);
@@ -899,6 +827,13 @@ Start with Quiz 1:`;
                 closeReference();
             }
         });
+
+        // Make functions globally accessible
+        window.navigateQuiz = navigateQuiz;
+        window.showReference = showReference;
+        window.closeReference = closeReference;
+        window.selectChoice = selectChoice;
+        window.submitShortAnswer = submitShortAnswer;
     </script>
 </body>
 </html>
