@@ -584,9 +584,9 @@
             uploadedFileMimeType = file.type || 'application/octet-stream';
             uploadedFileName = file.name;
 
-            // Upload to Gemini Files API
+            // Upload to Gemini Files API (using /upload/ endpoint)
             const uploadResponse = await fetch(
-                `${GEMINI_API_BASE}/files?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
                 {
                     method: 'POST',
                     body: formData
