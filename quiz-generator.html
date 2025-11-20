@@ -569,7 +569,20 @@
             }
 
             const uploadData = await uploadResponse.json();
-            uploadedFileUri = uploadData.file.uri;
+            console.log('Upload response:', uploadData);
+
+            // Handle different possible response structures
+            if (uploadData.file && uploadData.file.uri) {
+                // Response has { file: { uri: ... } } structure
+                uploadedFileUri = uploadData.file.uri;
+            } else if (uploadData.uri) {
+                // Response has { uri: ... } structure directly
+                uploadedFileUri = uploadData.uri;
+            } else {
+                // Unexpected structure
+                console.error('Unexpected upload response structure:', uploadData);
+                throw new Error('File upload succeeded but returned unexpected response format. Please check the console for details.');
+            }
 
             // Read file content for reference (text files only for now)
             if (file.type === 'text/plain') {
