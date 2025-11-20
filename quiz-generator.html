@@ -546,6 +546,36 @@
             }
         }
 
+        async function waitForFileReady(fileName, maxAttempts = 10) {
+            // Poll the file status until it's ACTIVE
+            for (let i = 0; i < maxAttempts; i++) {
+                const response = await fetch(
+                    `${GEMINI_API_BASE}/${fileName}?key=${apiKey}`,
+                    { method: 'GET' }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Failed to check file status');
+                }
+
+                const fileData = await response.json();
+                console.log(`File state check ${i + 1}:`, fileData.state);
+
+                if (fileData.state === 'ACTIVE') {
+                    return;
+                }
+
+                if (fileData.state === 'FAILED') {
+                    throw new Error('File processing failed');
+                }
+
+                // Wait before next check (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, i), 10000)));
+            }
+
+            throw new Error('File processing timeout - file did not become ready in time');
+        }
+
         async function uploadFile(file) {
             const formData = new FormData();
             formData.append('file', file);
@@ -571,17 +601,22 @@
             const uploadData = await uploadResponse.json();
             console.log('Upload response:', uploadData);
 
-            // Handle different possible response structures
-            if (uploadData.file && uploadData.file.uri) {
-                // Response has { file: { uri: ... } } structure
-                uploadedFileUri = uploadData.file.uri;
-            } else if (uploadData.uri) {
-                // Response has { uri: ... } structure directly
-                uploadedFileUri = uploadData.uri;
+            // Gemini Files API returns { file: { name: "files/...", state: "PROCESSING" or "ACTIVE", ... } }
+            if (uploadData.file && uploadData.file.name) {
+                uploadedFileUri = uploadData.file.name;
+
+                // Wait for file to be ready if it's still processing
+                if (uploadData.file.state === 'PROCESSING') {
+                    await waitForFileReady(uploadData.file.name);
+                }
+            } else if (uploadData.name) {
+                // Response has { name: ... } structure directly
+                uploadedFileUri = uploadData.name;
             } else {
-                // Unexpected structure
+                // Unexpected structure - log full response for debugging
                 console.error('Unexpected upload response structure:', uploadData);
-                throw new Error('File upload succeeded but returned unexpected response format. Please check the console for details.');
+                console.error('Response keys:', Object.keys(uploadData));
+                throw new Error(`File upload returned unexpected format. Expected "file.name" but got: ${JSON.stringify(uploadData)}`);
             }
 
             // Read file content for reference (text files only for now)
